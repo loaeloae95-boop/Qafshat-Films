@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Music, Video, Trash2, Loader2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { supabase } from "@/components/SupabaseProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/library")({
   head: () => ({ meta: [{ title: "مكتبتي - قفشات أفلام" }] }),
