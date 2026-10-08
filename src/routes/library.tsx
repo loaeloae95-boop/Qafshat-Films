@@ -1,166 +1,100 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Library as LibraryIcon, Search, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Music, Video, Trash2, Loader2, FolderOpen } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { ClipCard } from "@/components/ClipCard";
-import type { Clip } from "@/data/clips";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/components/SupabaseProvider";
 
 export const Route = createFileRoute("/library")({
-  head: () => ({
-    meta: [
-      { title: "مكتبتي — قفشات أفلام" },
-      {
-        name: "description",
-        content: "القفشات التي صنعتها وحفظتها بالتطبيق في مكان واحد.",
-      },
-      { property: "og:title", content: "مكتبتي — قفشات أفلام" },
-      { property: "og:description", content: "كل قفشاتك المحفوظة في مكان واحد." },
-    ],
-  }),
-  component: LibraryPage,
+  head: () => ({ meta: [{ title: "مكتبتي - قفشات أفلام" }] }),
 });
 
-type ClipRow = {
+interface MediaFile {
+  name: string;
   id: string;
-  title: string;
-  author: string;
-  media_url: string;
-  media_type: "audio" | "video";
-  duration_seconds: number | null;
-  category: string;
   created_at: string;
-};
-
-const GRADIENTS = ["gradient-violet", "gradient-teal", "gradient-amber"];
-
-function formatDuration(seconds: number | null) {
-  if (!seconds || seconds <= 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
+  url: string;
+  type: "audio" | "video";
 }
 
-function rowToClip(row: ClipRow, index: number): Clip {
-  return {
-    id: row.id,
-    title: row.title,
-    author: row.author || "أنا",
-    duration: formatDuration(row.duration_seconds),
-    plays: "0",
-    likes: "0",
-    category: row.category || "مرفوعاتي",
-    gradient: GRADIENTS[index % GRADIENTS.length],
-    mediaUrl: row.media_url,
-    mediaType: row.media_type,
-  };
-}
+export default function Library() {
+  const [files, setFiles] = useState<MediaFile[]>([]);
+  const [loading, setLoading] = useState(true);
 
-function LibraryPage() {
-  const [rows, setRows] = useState<ClipRow[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"الكل" | "فيديو" | "صوت">("الكل");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const db = supabase as unknown as import("@supabase/supabase-js").SupabaseClient;
-      const { data, error } = await db
+  const fetchLibraryFiles = async () => {
+    try {
+      setLoading(true);
+      // جلب البيانات من جدول clips النصي المرتبط بالرئيسية
+      const { data, error } = await supabase
         .from("clips")
         .select("*")
         .order("created_at", { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        setLoadError("تعذر تحميل مكتبتك — تأكد إن جدول clips تم إنشاؤه بـ Supabase");
-        setRows([]);
-      } else {
-        setRows((data ?? []) as ClipRow[]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
-  const clips = useMemo(() => (rows ?? []).map(rowToClip), [rows]);
+      if (error) throw error;
+      setFiles(data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("حدث خطأ أثناء تحميل مكتبتك");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return clips.filter((clip) => {
-      const matchesQuery = !q || clip.title.toLowerCase().includes(q);
-      const matchesType =
-        typeFilter === "الكل" ||
-        (typeFilter === "فيديو" && clip.mediaType === "video") ||
-        (typeFilter === "صوت" && clip.mediaType === "audio");
-      return matchesQuery && matchesType;
-    });
-  }, [clips, query, typeFilter]);
+  useEffect(() => { fetchLibraryFiles(); }, []);
+
+  const handleDelete = async (id: string, name: string, type: "audio" | "video") => {
+    if (!confirm("هل تريد حذف هذا المقطع نهائياً؟")) return;
+    try {
+      const bucket = type === "video" ? "videos" : "audios";
+      await supabase.storage.from(bucket).remove([name]);
+      await supabase.from("clips").delete().eq("id", id);
+      toast.success("تم الحذف بنجاح");
+      setFiles(files.filter(f => f.id !== id));
+    } catch (err) {
+      toast.error("فشل الحذف");
+    }
+  };
 
   return (
     <AppShell>
-      <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold">
-        <LibraryIcon className="size-6 text-primary" />
-        مكتبتي
-      </h1>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {rows === null ? "جارٍ التحميل..." : `${filtered.length} قفشة محفوظة`}
-      </p>
+      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-24 text-right" dir="rtl">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <FolderOpen className="text-purple-400 w-6 h-6" /> مكتبة قفشاتي الخاصة
+        </h1>
 
-      <div className="mt-4 flex items-center gap-2 rounded-2xl bg-surface px-3.5 py-2.5 ring-1 ring-border">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث عن قفشة بالاسم..."
-          className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-muted-foreground/70 focus:outline-none"
-        />
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+            <p>جاري تحميل قفشاتك السحابية...</p>
+          </div>
+        ) : files.length === 0 ? (
+          <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+            <p className="text-slate-400">مكتبتك فارغة حالياً.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {files.map((file) => (
+              <div key={file.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-xs text-slate-500">{new Date(file.created_at).toLocaleDateString("ar-EG")}</span>
+                  <button onClick={() => handleDelete(file.id, file.name, file.type)} className="text-rose-400 hover:text-rose-500">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                {file.type === "video" ? (
+                  <video src={file.url} controls className="w-full rounded-lg bg-black max-h-48" playsInline />
+                ) : (
+                  <div className="flex flex-col gap-2 bg-slate-800/40 p-2 rounded-lg">
+                    <div className="flex items-center gap-2 text-blue-400 text-xs"><Music className="w-4 h-4" /> مقطع صوتي</div>
+                    <audio src={file.url} controls className="w-full" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      <div className="mt-3 flex gap-2">
-        {(["الكل", "فيديو", "صوت"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTypeFilter(t)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
-              typeFilter === t
-                ? "bg-primary text-primary-foreground"
-                : "bg-surface text-muted-foreground ring-1 ring-border"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {rows === null && (
-        <div className="mt-10 flex flex-col items-center gap-2 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-          <p className="text-xs">جارٍ تحميل قفشاتك...</p>
-        </div>
-      )}
-
-      {loadError && (
-        <p className="mt-6 rounded-2xl bg-red-500/10 p-3 text-center text-xs text-red-400">
-          {loadError}
-        </p>
-      )}
-
-      {rows !== null && !loadError && filtered.length === 0 && (
-        <div className="mt-10 text-center text-xs text-muted-foreground">
-          {query || typeFilter !== "الكل"
-            ? "ما فيه نتائج مطابقة للبحث"
-            : "ما حفظت أي قفشة بعد — جرّب تصدّر مقطعاً من استوديو القص واضغط «حفظ في مكتبتي»"}
-        </div>
-      )}
-
-      <section className="mt-5 grid grid-cols-3 gap-2.5">
-        {filtered.map((clip) => (
-          <ClipCard key={clip.id} clip={clip} />
-        ))}
-      </section>
     </AppShell>
   );
 }
