@@ -1,0 +1,8 @@
+[
+  { "id": "1", "title": "ضحكة الحي", "file": "dahkat-alhay.mp4", "thumb": "dahkat-alhay.webp", "tags": ["كوميدي", "ضحك"] },
+  { "id": "2", "title": "أفهة الليل", "file": "afhat-allayl.mp4", "thumb": "afhat-allayl.webp", "tags": ["ترند"] },
+  { "id": "3", "title": "شخصية كرتونية", "file": "cartoon.mp4", "thumb": "cartoon.webp", "tags": ["كرتون"] },
+  { "id": "4", "title": "صوت مضحك", "file": "funny.mp4", "thumb": "funny.webp", "tags": ["كوميدي", "صوت"] },
+  { "id": "5", "title": "مقطع المباراة", "file": "match.mp4", "thumb": "match.webp", "tags": ["رياضة"] },
+  { "id": "6", "title": "جملة الفيلم", "file": "movie-line.mp4", "thumb": "movie-line.webp", "tags": ["أفلام"] }
+]

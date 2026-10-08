@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.qafshat.aflam">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- يسمح للتطبيق برؤية Gboard/واتساب/ماسنجر عند الاستعلام (Android 11+) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="video/mp4" />
+        </intent>
+        <intent>
+            <action android:name="android.content.action.STICKER_PACK" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".QafshatApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Qafshat">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- ظهور أيقونة التطبيق في شريط الملصقات/GIF داخل Gboard -->
+            <intent-filter>
+                <action android:name="android.content.action.STICKER_PACK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- استقبال روابط ومقاطع مشاركة من تطبيقات أخرى -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/mp4" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- لوحة مفاتيح قفشات أفلام (اختيارية: لوحة كاملة بشريط بحث) -->
+        <service
+            android:name=".keyboard.QafshatInputMethodService"
+            android:exported="true"
+            android:label="@string/keyboard_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+        <!-- مزوّد الملصقات: Gboard يقرأ منه القائمة عبر commitContent -->
+        <provider
+            android:name=".stickers.StickerContentProvider"
+            android:authorities="com.qafshat.aflam.stickers"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:readPermission="com.qafshat.aflam.permission.READ_STICKERS">
+            <intent-filter>
+                <action android:name="android.content.action.STICKER_PACK" />
+            </intent-filter>
+        </provider>
+
+        <!-- مشاركة ملفات MP4 مع واتساب/ماسنجر -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.qafshat.aflam.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+    <permission
+        android:name="com.qafshat.aflam.permission.READ_STICKERS"
+        android:protectionLevel="normal" />
+</manifest>
