@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // تأكد من صحة مسار ملف سوبابيز لديك
+import { supabase } from "../supabaseClient"; 
 import { Play, Trash2, Video, Volume2, AlertCircle, RefreshCw } from 'lucide-react';
+import { createFileRoute } from '@tanstack/react-router'; // 1. استيراد أداة التوجيه
 
-export default function MyLibrary() {
+// 2. تسجيل وتصدير المسار الخاص بالمكتبة ليتعرف عليه الـ Router
+export const Route = createFileRoute('/library')({
+  component: MyLibrary,
+})
+
+// 3. إزالة كلمة default وإبقاء الدالة كما هي
+function MyLibrary() { 
+
   const [mediaItems, setMediaItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
