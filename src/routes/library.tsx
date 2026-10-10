@@ -20,7 +20,7 @@ export const Route = createFileRoute("/library")({
 });
 
 function LibraryPage() {
-  const saved = clips.slice(0, 4);
+  const saved = useClips().data ?? [];
 
   return (
     <AppShell>
