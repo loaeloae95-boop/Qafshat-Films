@@ -1,7 +1,5 @@
 import { Heart, Play, Pause, Share2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface ClipCardProps {
@@ -16,34 +14,56 @@ interface ClipCardProps {
     likes: number;
     shares: number;
     isNew?: boolean;
-    isAudio?: boolean;
   };
 }
 
 export function ClipCard({ clip }: ClipCardProps) {
+  // جعل الحالة الافتراضية دائماً false عند بناء الكارت لمنع التشغيل التلقائي في مكتبتي
   const [isPlaying, setIsPlaying] = useState(false);
-  // استخدام useRef للإمساك بعنصر التشغيل بشكل مباشر وثابت
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // مراقبة تغيير حالة التشغيل للتحكم الفعلي في الميديا
+  // إعادة ضبط الحالة إلى false إذا تغير الـ clip لمنع انتقال حالة التشغيل بين البطاقات
   useEffect(() => {
-    if (clip.mediaType === "audio" && audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch((err) => console.log("Audio play blocked:", err));
-      } else {
-        audioRef.current.pause();
+    setIsPlaying(false);
+  }, [clip.id]);
+
+  useEffect(() => {
+    // إيقاف تشغيل الميديا الأخرى عند تدمير المكون أو إغلاقه
+    return () => {
+      if (audioRef.current) audioRef.current.pause();
+      if (videoRef.current) videoRef.current.pause();
+    };
+  }, []);
+
+  useEffect(() => {
+    const playMedia = async () => {
+      try {
+        if (clip.mediaType === "audio" && audioRef.current) {
+          if (isPlaying) {
+            await audioRef.current.play();
+          } else {
+            audioRef.current.pause();
+          }
+        } else if (clip.mediaType === "video" && videoRef.current) {
+          if (isPlaying) {
+            await videoRef.current.play();
+          } else {
+            videoRef.current.pause();
+          }
+        }
+      } catch (err) {
+        console.log("تعذر تشغيل الميديا بسبب قيود المتصفح الإلكتروني:", err);
+        setIsPlaying(false); // إرجاع الزر لوضع التشغيل إذا فشل المتصفح
       }
-    } else if (clip.mediaType === "video" && videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.play().catch((err) => console.log("Video play blocked:", err));
-      } else {
-        videoRef.current.pause();
-      }
-    }
+    };
+
+    playMedia();
   }, [isPlaying, clip.mediaType]);
 
-  const togglePlay = () => {
+  const togglePlay = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // منع انتشار النقرة لعدم تداخل الأحداث
     setIsPlaying(!isPlaying);
   };
 
@@ -55,74 +75,79 @@ export function ClipCard({ clip }: ClipCardProps) {
       )}
     >
       {/* الجزء العلوي: النوع والوقت */}
-      <div className="flex items-center justify-between gap-1">
-        <Badge className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-[10px]">
+      <div className="flex items-center justify-between gap-1 z-10">
+        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-[10px]">
           {clip.mediaType === "audio" ? "صوت" : "فيديو"}
-        </Badge>
+        </span>
         <span className="text-[10px] font-medium text-white/80">{clip.duration}</span>
       </div>
 
       {/* الشارات الإضافية مثل جديد */}
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-2 flex flex-wrap gap-1 z-10">
         {clip.isNew && (
-          <Badge className="rounded-full bg-blue-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-blue-600 px-2.5 py-0.5 text-[10px] font-bold text-white temporary-badge">
             جديد
-          </Badge>
+          </span>
         )}
       </div>
 
-      {/* زر التشغيل والإيقاف في المنتصف */}
-      <div className="flex flex-1 items-center justify-center">
-        <Button
+      {/* زر التشغيل والإيقاف الشفاف والأنيق (حسب التصميم الأصلي) */}
+      <div className="flex flex-1 items-center justify-center z-10">
+        <button
           type="button"
-          size="icon"
           onClick={togglePlay}
-          className="h-14 w-14 rounded-full bg-white text-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
         >
           {isPlaying ? (
-            <Pause className="h-6 w-6 fill-current text-black" />
+            <Pause className="h-6 w-6 fill-white text-white" />
           ) : (
-            <Play className="h-6 w-6 fill-current translate-x-[2px] text-black" />
+            <Play className="h-6 w-6 fill-white text-white translate-x-[2px]" />
           )}
-        </Button>
+        </button>
       </div>
 
-      {/* عناصر الميديا المخفية والموجودة بشكل دائم في الـ DOM لتفادي حظر المتصفح */}
-      {clip.mediaUrl && clip.mediaType === "audio" && (
-        <audio
-          ref={audioRef}
-          src={clip.mediaUrl}
-          onEnded={() => setIsPlaying(false)}
-          preload="metadata"
-          className="hidden"
-        />
+      {/* عناصر الميديا المخفية المستقرة في الـ DOM */}
+      {clip.mediaUrl && (
+        <>
+          {clip.mediaType === "audio" ? (
+            <audio
+              ref={audioRef}
+              src={clip.mediaUrl}
+              onEnded={() => setIsPlaying(false)}
+              preload="auto"
+              className="hidden"
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              src={clip.mediaUrl}
+              onEnded={() => setIsPlaying(false)}
+              preload="auto"
+              className="hidden"
+            />
+          )}
+        </>
       )}
 
-      {clip.mediaUrl && clip.mediaType === "video" && (
-        <video
-          ref={videoRef}
-          src={clip.mediaUrl}
-          onEnded={() => setIsPlaying(false)}
-          preload="metadata"
-          className="hidden"
-        />
-      )}
-
-      {/* تفاصيل المقطع السفلي: العنوان واسم القائل */}
-      <div className="mt-4 text-center text-white">
+      {/* تفاصيل المقطع السفلي */}
+      <div className="mt-4 text-center text-white z-10">
         <h3 className="truncate text-sm font-bold">{clip.title}</h3>
         <p className="truncate text-[11px] text-white/70">{clip.speaker}</p>
       </div>
 
-      {/* أزرار التفاعل: الإعجاب والمشاركة */}
-      <div className="mt-3 flex items-center justify-center gap-6 text-white/90">
+      {/* أزرار التفاعل السفلى */}
+      <div className="mt-3 flex items-center justify-center gap-6 text-white/90 z-10">
         <button type="button" className="flex items-center gap-1.5 transition hover:scale-110">
           <Heart className="h-4 w-4" />
-          <span className="text-xs">{clip.likes >= 1000 ? `${(clip.likes / 1000).toFixed(1)}k` : clip.likes}</span>
+          <span className="text-xs">
+            {clip.likes >= 1000 ? `${(clip.likes / 1000).toFixed(1)}k` : clip.likes}
+          </span>
         </button>
         <button type="button" className="flex items-center gap-1.5 transition hover:scale-110">
           <Share2 className="h-4 w-4" />
-          <span className="text-xs">{clip.shares >= 1000 ? `${(clip.shares / 1000).toFixed(1)}k` : clip.shares}</span>
+          <span className="text-xs">
+            {clip.shares >= 1000 ? `${(clip.shares / 1000).toFixed(1)}k` : clip.shares}
+          </span>
         </button>
       </div>
     </div>
