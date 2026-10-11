@@ -21,6 +21,7 @@ export const categories = [
   "صوت",
   "أفلام",
   "رياضة",
+  "مرفوعاتي"
 ] as const;
 
 export const clips: Clip[] = [
