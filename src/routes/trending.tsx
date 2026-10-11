@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Flame } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { ClipCard } from "@/components/ClipCard";
-import { clips } from "@/data/clips";
+import { useClips().data ?? [] } from "@/data/useClips().data ?? []";
 
 export const Route = createFileRoute("/trending")({
   head: () => ({
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/trending")({
 });
 
 function Trending() {
-  const top = [...clips].sort(
+  const top = [...useClips().data ?? []].sort(
     (a, b) => parseFloat(b.plays) - parseFloat(a.plays),
   );
 
