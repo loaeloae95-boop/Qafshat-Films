@@ -1,51 +1,43 @@
--- شغّل هذا الملف كامل من لوحة Supabase: SQL Editor → New query → الصق والصق Run
--- يسوي: (1) جدول clips لحفظ القفشات المصدَّرة من الاستوديو، (2) صلاحيات
--- الرفع/القراءة لمخازن التخزين الثلاثة اللي أنشأتها (images / audios / videos).
-
--- =========================================================
--- 1) جدول القفشات (clips) — هذا اللي يخلي "مكتبتي" تعرض شي حقيقي
--- =========================================================
-create table if not exists public.clips (
-  id uuid primary key default gen_random_uuid(),
-  title text not null,
-  author text not null default 'أنا',
-  media_url text not null,
-  media_type text not null check (media_type in ('audio', 'video')),
-  duration_seconds numeric,
-  category text not null default 'مرفوعاتي',
+-- ملفات المستخدمين
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null default 'مستخدم',
   created_at timestamptz not null default now()
 );
+alter table public.profiles enable row level security;
 
-alter table public.clips enable row level security;
+drop policy if exists "profiles public read" on public.profiles;
+create policy "profiles public read" on public.profiles for select using (true);
+drop policy if exists "profiles update own" on public.profiles;
+create policy "profiles update own" on public.profiles for update to authenticated using (auth.uid() = id);
 
--- بما إن التطبيق حالياً بدون تسجيل دخول حقيقي، نسمح بالقراءة والإضافة للجميع.
--- إذا فعّلت لاحقاً تسجيل الدخول، بدّل "true" بشرط يربط الصف بـ auth.uid().
-drop policy if exists "public read clips" on public.clips;
-create policy "public read clips"
-  on public.clips for select
-  using (true);
+-- إنشاء الملف تلقائياً عند التسجيل
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)));
+  return new;
+end $$;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ربط القفشات بصاحبها
+alter table public.clips add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
 drop policy if exists "public insert clips" on public.clips;
-create policy "public insert clips"
-  on public.clips for insert
-  with check (true);
+drop policy if exists "insert own clips" on public.clips;
+create policy "insert own clips" on public.clips for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "delete own clips" on public.clips;
+create policy "delete own clips" on public.clips for delete to authenticated using (auth.uid() = user_id);
 
--- =========================================================
--- 2) صلاحيات مخازن التخزين (Storage) — بدونها أي رفع يفشل بخطأ RLS
---    حتى لو الكود بالواجهة صحيح 100%، لأن البكتات عندك "Policies: 0"
--- =========================================================
-drop policy if exists "public read media" on storage.objects;
-create policy "public read media"
-  on storage.objects for select
-  using (bucket_id in ('images', 'audios', 'videos'));
-
+-- التخزين: القراءة للجميع، الرفع والحذف فقط داخل مجلدك
 drop policy if exists "public upload media" on storage.objects;
-create policy "public upload media"
-  on storage.objects for insert
-  with check (bucket_id in ('images', 'audios', 'videos'));
-
--- (اختياري) تسمح بالاستبدال (upsert) على نفس المسار بدل ما يفشل لو الاسم مكرر
 drop policy if exists "public update media" on storage.objects;
-create policy "public update media"
-  on storage.objects for update
-  using (bucket_id in ('images', 'audios', 'videos'));
+drop policy if exists "upload own folder" on storage.objects;
+create policy "upload own folder" on storage.objects for insert to authenticated
+  with check (bucket_id in ('images','audios','videos') and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "delete own files" on storage.objects;
+create policy "delete own files" on storage.objects for delete to authenticated
+  using (bucket_id in ('images','audios','videos') and (storage.foldername(name))[1] = auth.uid()::text);
