@@ -33,20 +33,29 @@ export function useClips() {
         console.error("clips fetch error:", error);
         return [];
       }
-      return (data ?? []).map((r, i) => ({
-        id: String(r.id),
-        title: r.title,
-        author: r.author ?? "مستخدم",
-        duration: fmtDuration(r.duration_seconds),
-        plays: "0",
-        likes: "0",
-        category: r.category ?? "مرفوعاتي",
-        gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
-        mediaUrl: toPublicUrl(r.media_url),
-        mediaType: (r.media_type === "audio" ? "audio" : "video") as "audio" | "video",
-        ...(r.cover_url ? { coverUrl: String(r.cover_url) } : {}),
-        ...(r.user_id ? { userId: String(r.user_id) } : {}),
-      }));
+     return (data ?? []).map((r, i) => {
+  // 1. تحويل نوع الوسائط لنص صغير لتجنب اختلاف الحروف الكبيرة والصغيرة
+  const rawMediaType = String(r.media_type ?? "").toLowerCase();
+  
+  // 2. تحديد نوع الوسائط بدقة (صوت أم فيديو)
+  const mediaType: Clip["mediaType"] = 
+    rawMediaType === "audio" ? "audio" : "video";
+
+  return {
+    id: String(r.id),
+    title: String(r.title ?? "مقطع بدون عنوان"),
+    author: String(r.author ?? "مستخدم"),
+    duration: fmtDuration(r.duration_seconds),
+    plays: String(r.plays_count ?? "0"),
+    likes: String(r.likes_count ?? "0"),
+    category: String(r.category ?? "مرفوعاتي"),
+    gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
+    mediaUrl: toPublicUrl(String(r.media_url ?? "")),
+    mediaType, // استخدام المتغير الجديد المحمي هنا
+    ...(r.cover_url ? { coverUrl: String(r.cover_url) } : {}),
+    ...(r.user_id ? { userId: String(r.user_id) } : {}),
+  };
+});
     },
   });
 }
