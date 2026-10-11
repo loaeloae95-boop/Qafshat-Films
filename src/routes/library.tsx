@@ -2,8 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Library as LibraryIcon } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { ClipCard } from "@/components/ClipCard";
-import { clips } from "@/data/clips";
-
 export const Route = createFileRoute("/library")({
   head: () => ({
     meta: [
@@ -37,4 +35,5 @@ function LibraryPage() {
       </section>
     </AppShell>
   );
+import { useClips } from "@/hooks/use-clips";
 }
