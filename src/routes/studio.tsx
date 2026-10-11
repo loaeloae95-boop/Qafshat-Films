@@ -266,28 +266,19 @@ function ImportFromUrl({
   );
 }
 
-const STORAGE_BUCKET = "videos";
-
-/** Uploads a finished clip to Supabase Storage with a real progress bar.
- *  Note: the supabase-js `.storage.upload()` helper is fetch-based and has
- *  no upload-progress callback in browsers, so we call the same Storage
- *  REST endpoint directly via XHR (same auth headers the SDK itself uses)
- *  to get real `onprogress` events, then use the SDK just to resolve the
- *  public URL afterwards. */
 async function uploadToSupabaseStorage(
+  bucket: string,
   blob: Blob,
   path: string,
   onProgress: (pct: number) => void,
 ): Promise<string> {
   const supabaseUrl = (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ?? "";
   const anonKey = (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined) ?? "";
-  if (!supabaseUrl || !anonKey) {
-    throw new Error("إعدادات Supabase غير مكتملة");
-  }
+  if (!supabaseUrl || !anonKey) throw new Error("إعدادات Supabase غير مكتملة");
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token ?? anonKey;
-  const endpoint = `${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${path}`;
+  const endpoint = `${supabaseUrl}/storage/v1/object/${bucket}/${path}`;
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -317,8 +308,41 @@ async function uploadToSupabaseStorage(
     xhr.send(blob);
   });
 
-  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
+
+/** يلتقط صورة مصغّرة من أول إطار في الفيديو. */
+async function makePoster(blob: Blob): Promise<Blob | null> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "auto";
+    v.src = url;
+    await new Promise<void>((res, rej) => {
+      v.onloadeddata = () => res();
+      v.onerror = () => rej(new Error("poster"));
+    });
+    v.currentTime = 0.2;
+    await Promise.race([
+      new Promise<void>((res) => {
+        v.onseeked = () => res();
+      }),
+      new Promise<void>((res) => setTimeout(res, 1500)),
+    ]);
+    if (!v.videoWidth) return null;
+    const w = 360;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = Math.round((v.videoHeight / v.videoWidth) * w);
+    c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+    return await new Promise<Blob | null>((res) => c.toBlob(res, "image/jpeg", 0.7));
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function UploadToCloudButton({
@@ -329,7 +353,6 @@ function UploadToCloudButton({
 }: {
   blob: Blob;
   filename: string;
-  /** Shown in "مكتبتي" once saved. */
   title: string;
   durationSeconds: number;
 }) {
@@ -344,7 +367,7 @@ function UploadToCloudButton({
     return (
       <Link
         to="/auth"
-        className="mt-3 block rounded-2xl border border-accent/40 bg-accent/10 py-2.5 text-center font-bold text-accent"
+        className="mt-3 block rounded-2xl border border-accent/40 bg-accent/10 py-2.5 text-center text-xs font-bold text-accent"
       >
         سجّل الدخول لحفظ القفشة في السحابة
       </Link>
@@ -356,32 +379,44 @@ function UploadToCloudButton({
     setStatus("uploading");
     setProgress(0);
     setErrorMsg(null);
-       try {
-      const safeName = filename.replace(/[^a-zA-Z.0-9-]/g, "-");
-      const path = `${user.id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${safeName}`;
-      const url = await uploadToSupabaseStorage(blob, path, setProgress);
+    try {
+      const stamp = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      const safeName = filename.replace(/[^a-zA-Z0-9.-]/g, "-");
+      const url = await uploadToSupabaseStorage("videos", blob, `${user.id}/${stamp}-${safeName}`, setProgress);
+
+      let coverUrl: string | null = null;
+      const poster = await makePoster(blob);
+      if (poster) {
+        try {
+          coverUrl = await uploadToSupabaseStorage("images", poster, `${user.id}/${stamp}.jpg`, () => {});
+        } catch {
+          /* الصورة اختيارية */
+        }
+      }
+
       setPublicUrl(url);
       setStatus("done");
 
-      const author = (user.user_metadata?.["display_name"] as string | undefined) ?? user.email?.split("@")[0] ?? "مستخدم";
-      const db = supabase as unknown as any;
-      const { error: dbError } = await db.from("clips").insert({
+      const author =
+        (user.user_metadata?.["display_name"] as string | undefined) ?? user.email?.split("@")[0] ?? "مستخدم";
+      const dbClient = supabase as unknown as import("@supabase/supabase-js").SupabaseClient;
+      const { error: dbError } = await dbClient.from("clips").insert({
         title,
         media_url: url,
         media_type: "video",
         duration_seconds: durationSeconds,
         user_id: user.id,
         author,
+        cover_url: coverUrl,
       });
 
       if (dbError) {
-        console.error("Database error:", dbError);
-        toast.error("تم الرفع للسحابة، لكن تعذر حفظه بمكتبتك داخل التطبيق");
+        console.error("clips insert error:", dbError);
+        toast.error("تم الرفع للسحابة، لكن تعذر حفظه في القائمة");
       } else {
-        toast.success("تم حفظ القفشة - صارت ظاهرة للجميع! 🎉");
+        toast.success("تم حفظ القفشة — صارت ظاهرة للجميع 🎉");
         qc.invalidateQueries({ queryKey: ["clips"] });
       }
-    }
     } catch (err) {
       setStatus("error");
       const msg = err instanceof Error ? err.message : "تعذر رفع المقطع للسحابة";
@@ -408,16 +443,13 @@ function UploadToCloudButton({
         {status === "uploading"
           ? `جارٍ الحفظ... ${progress}%`
           : status === "done"
-            ? "تم الحفظ بمكتبتك ✓"
-            : "حفظ في مكتبتي (السحابة)"}
+            ? "تم الحفظ ✓"
+            : "حفظ ونشر القفشة"}
       </button>
 
       {status === "uploading" && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-foreground/10">
-          <div
-            className="h-full rounded-full bg-accent transition-all"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
         </div>
       )}
 
@@ -432,14 +464,12 @@ function UploadToCloudButton({
           rel="noreferrer"
           className="mt-1.5 block truncate text-center text-[11px] text-accent underline"
         >
-          فتح رابط الملف بالسحابة
+          فتح رابط الملف
         </a>
       )}
     </div>
   );
 }
-
-function Slider({
   label,
   value,
   max,
