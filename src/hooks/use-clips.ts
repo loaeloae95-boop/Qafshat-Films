@@ -40,7 +40,7 @@ export function useClips() {
         category: r.category ?? "مرفوعي",
         gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
         mediaUrl: toPublicUrl(r.media_url),
-        mediaType: r.media_type === "audio" ? "audio" : "video",
+        mediaType: r.media_type === "video",
         ...(r.user_id ? { userId: String(r.user_id) } : {}),
       }));
     },
