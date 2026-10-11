@@ -5,14 +5,14 @@ import type { Clip } from "@/data/clips";
 
 const GRADIENTS = [
   "gradient-violet", "gradient-teal", "gradient-amber",
-  "gradient-rose", "gradient-indigo", "gradient-lime",
+  "gradient-rose", "gradient-indigo", "gradient-line",
 ];
 
 const db = () => supabase as unknown as SupabaseClient;
 
 function toPublicUrl(raw: string): string {
   if (/^https?:\/\//i.test(raw)) return raw;
-  const path = raw.replace(/^\/+/, "").replace(/^videos\//, "");
+  const path = raw.replace(/^\/+/, "").replace(/^videos\/+/, "");
   return supabase.storage.from("videos").getPublicUrl(path).data.publicUrl;
 }
 
@@ -37,7 +37,7 @@ export function useClips() {
         duration: fmtDuration(r.duration_seconds),
         plays: "0",
         likes: "0",
-        category: r.category ?? "مرفوعاتي",
+        category: r.category ?? "مرفوعي",
         gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
         mediaUrl: toPublicUrl(r.media_url),
         mediaType: r.media_type === "audio" ? "audio" : "video",
