@@ -61,11 +61,7 @@ export function ClipCard({ clip }: { clip: Clip }) {
           src={clip.mediaUrl}
           preload="metadata"
           playsInline
-          className={
-            isAudio
-              ? "hidden"
-              : "absolute inset-0 h-full w-full object-cover"
-          }
+          className="absolute inset-0 h-full w-full object-cover"
           onLoadedMetadata={(e) => {
             const video = e.currentTarget;
             if (video.videoWidth === 0 || video.videoHeight === 0) {
