@@ -10,10 +10,8 @@ export type Clip = {
   badge?: string;
   mediaUrl?: string;
   mediaType?: "audio" | "video";
-  coverUrl?: string;
   userId?: string;
 };
-
 export const categories = [
   "الكل",
   "كوميدي",
