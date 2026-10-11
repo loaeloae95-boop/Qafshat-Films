@@ -1,59 +1,56 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Bell, ChevronLeft, Moon, Shield, Upload } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { LogOut } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useSession } from "@/hooks/use-auth";
+import { useClips } from "@/hooks/use-clips";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/account")({
-  head: () => ({
-    meta: [
-      { title: "حسابي — قفشات أفلام" },
-      {
-        name: "description",
-        content: "إدارة ملفك الشخصي، مقاطعك المرفوعة وإعدادات التطبيق.",
-      },
-      { property: "og:title", content: "حسابي — قفشات أفلام" },
-      { property: "og:description", content: "ملفك الشخصي وإعدادات تطبيق قفشات أفلام." },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "حسابي — قفشات أفلام" }] }),
   component: Account,
 });
 
-const rows = [
-  { icon: Upload, label: "مقاطعي المرفوعة", value: "7" },
-  { icon: Bell, label: "الإشعارات", value: "مفعّلة" },
-  { icon: Moon, label: "المظهر", value: "داكن" },
-  { icon: Shield, label: "الخصوصية", value: "" },
-];
-
 function Account() {
+  const { user, loading } = useSession();
+  const { data: all = [] } = useClips();
+  const count = user ? all.filter((c) => c.userId === user.id).length : 0;
+  const name =
+    (user?.user_metadata?.["display_name"] as string | undefined) ?? user?.email?.split("@")[0] ?? "";
+
   return (
     <AppShell>
       <h1 className="font-display text-2xl font-extrabold">حسابي</h1>
 
-      <div className="mt-5 flex items-center gap-4 rounded-3xl gradient-violet p-5 shadow-glow">
-        <div className="grid size-14 place-items-center rounded-full bg-background/35 text-xl font-bold">
-          ل
+      {!loading && !user && (
+        <div className="glass-panel mt-5 rounded-3xl p-6 text-center">
+          <p className="mb-4 text-sm text-muted-foreground">أنشئ حساباً لتشارك قفشاتك مع الجميع</p>
+          <Link to="/auth" className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground">
+            تسجيل الدخول / حساب جديد
+          </Link>
         </div>
-        <div>
-          <p className="font-bold">لؤي أبو سنينة</p>
-          <p className="text-xs text-foreground/75">١٫٢ ألف متابع · ٧ قفشات</p>
-        </div>
-      </div>
+      )}
 
-      <ul className="mt-5 space-y-2">
-        {rows.map(({ icon: Icon, label, value }) => (
-          <li key={label}>
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-sm ring-1 ring-border transition hover:bg-surface-2"
-            >
-              <Icon className="size-4 text-primary" />
-              <span className="flex-1 text-start">{label}</span>
-              <span className="text-xs text-muted-foreground">{value}</span>
-              <ChevronLeft className="size-4 text-muted-foreground" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      {user && (
+        <>
+          <div className="mt-5 flex items-center gap-4 rounded-3xl gradient-violet p-5 shadow-glow">
+            <div className="grid size-14 place-items-center rounded-full bg-background/35 text-xl font-bold">
+              {name.charAt(0)}
+            </div>
+            <div>
+              <p className="font-bold">{name}</p>
+              <p className="text-xs text-foreground/75" dir="ltr">{user.email}</p>
+              <p className="text-xs text-foreground/75">{count} قفشة</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => supabase.auth.signOut()}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3 text-sm ring-1 ring-border"
+          >
+            <LogOut className="size-4" /> تسجيل الخروج
+          </button>
+        </>
+      )}
     </AppShell>
   );
 }
