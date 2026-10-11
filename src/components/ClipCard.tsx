@@ -1,4 +1,4 @@
-import { Heart, Play, Pause, Share2 } from "lucide-react";
+import { Heart, Music, Pause, Play, Share2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -9,10 +9,14 @@ let currentlyPlaying: HTMLVideoElement | null = null;
 
 export function ClipCard({ clip }: { clip: Clip }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [noVideo, setNoVideo] = useState(false);
   const mediaRef = useRef<HTMLVideoElement | null>(null);
-  const isAudio = clip.mediaType === "audio";
+  const showVideo = clip.mediaType !== "audio" && !noVideo;
+  const hasImage = Boolean(clip.coverUrl) || (Boolean(clip.mediaUrl) && showVideo);
 
-  useEffect(() => () => mediaRef.current?.pause(), []);
+  useEffect(() => () => {
+    mediaRef.current?.pause();
+  }, []);
 
   const togglePlay = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -22,7 +26,10 @@ export function ClipCard({ clip }: { clip: Clip }) {
       toast.error("هذه قفشة تجريبية وليس لها ملف");
       return;
     }
-    if (!el.paused) return el.pause();
+    if (!el.paused) {
+      el.pause();
+      return;
+    }
     if (currentlyPlaying && currentlyPlaying !== el) currentlyPlaying.pause();
     try {
       await el.play();
@@ -40,14 +47,23 @@ export function ClipCard({ clip }: { clip: Clip }) {
         clip.gradient,
       )}
     >
+      {clip.coverUrl && (
+        <img
+          src={clip.coverUrl}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+
       {clip.mediaUrl && (
         <video
           ref={mediaRef}
-          // #t=0.1 يجعل المتصفح يعرض أول إطار كصورة مصغّرة
           src={`${clip.mediaUrl}#t=0.1`}
           preload="metadata"
           playsInline
-          className={isAudio ? "hidden" : "absolute inset-0 h-full w-full object-cover"}
+          className={showVideo ? "absolute inset-0 h-full w-full object-cover" : "hidden"}
+          onLoadedMetadata={(e) => setNoVideo(e.currentTarget.videoWidth === 0)}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
@@ -58,11 +74,16 @@ export function ClipCard({ clip }: { clip: Clip }) {
           }}
         />
       )}
-      {clip.mediaUrl && !isAudio && <div className="absolute inset-0 bg-black/25" />}
+
+      {hasImage ? (
+        <div className="absolute inset-0 bg-black/25" />
+      ) : (
+        <Music className="absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-white/15" />
+      )}
 
       <div className="relative z-10 flex items-center justify-between gap-1">
         <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-[10px]">
-          {clip.badge ?? (isAudio ? "صوت" : "فيديو")}
+          {clip.badge ?? (showVideo ? "فيديو" : "صوت")}
         </span>
         <span className="text-[10px] font-medium text-white/80">{clip.duration}</span>
       </div>
