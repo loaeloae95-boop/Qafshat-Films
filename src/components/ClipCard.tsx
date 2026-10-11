@@ -55,23 +55,38 @@ export function ClipCard({ clip }: { clip: Clip }) {
           className="absolute inset-0 h-full w-full object-cover"
         />
       )}
-
       {clip.mediaUrl && (
         <video
           ref={mediaRef}
-          src={`${clip.mediaUrl}#t=0.1`}
+          src={clip.mediaUrl}
           preload="metadata"
           playsInline
-          className={showVideo ? "absolute inset-0 h-full w-full object-cover" : "hidden"}
-          onLoadedMetadata={(e) => setNoVideo(e.currentTarget.videoWidth === 0)}
+          className={
+            isAudio
+              ? "hidden"
+              : "absolute inset-0 h-full w-full object-cover"
+          }
+          onLoadedMetadata={(e) => {
+            const video = e.currentTarget;
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+              console.error("الفيديو لا يحتوي على مسار صورة صالح", {
+                src: clip.mediaUrl,
+                videoWidth: video.videoWidth,
+                videoHeight: video.videoHeight,
+              });
+            }
+          }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
           onError={(e) => {
             console.error("media error:", e.currentTarget.error, clip.mediaUrl);
             setIsPlaying(false);
-            toast.error("الملف غير قابل للتشغيل — تحقق من الرابط");
+            toast.error("تعذر تشغيل صورة الفيديو");
           }}
+        />
+      )}
+
         />
       )}
 
