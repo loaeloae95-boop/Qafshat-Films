@@ -107,5 +107,9 @@ export const clips: Clip[] = [
     likes: "410",
     category: "ترند",
     gradient: "gradient-teal",
+export type Clip = {
+  // ... الحقول الحالية
+  userId?: string;
+};
   },
 ];
