@@ -1,3 +1,6 @@
+import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSession } from "@/hooks/use-auth";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -292,7 +295,6 @@ async function uploadToSupabaseStorage(
     xhr.setRequestHeader("apikey", anonKey);
     xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
     xhr.setRequestHeader("content-type", blob.type || "application/octet-stream");
-    xhr.setRequestHeader("x-upsert", "true");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -335,35 +337,51 @@ function UploadToCloudButton({
   const [progress, setProgress] = useState(0);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { user } = useSession();
+  const qc = useQueryClient();
+
+  if (!user) {
+    return (
+      <Link
+        to="/auth"
+        className="mt-3 block rounded-2xl border border-accent/40 bg-accent/10 py-2.5 text-center font-bold text-accent"
+      >
+        سجّل الدخول لحفظ القفشة في السحابة
+      </Link>
+    );
+  }
 
   const upload = async () => {
     if (status === "uploading") return;
     setStatus("uploading");
     setProgress(0);
     setErrorMsg(null);
-    try {
-      const safeName = filename.replace(/[^\w.\-\u0600-\u06FF]+/g, "-");
-      const path = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${safeName}`;
+       try {
+      const safeName = filename.replace(/[^a-zA-Z.0-9-]/g, "-");
+      const path = `${user.id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${safeName}`;
       const url = await uploadToSupabaseStorage(blob, path, setProgress);
       setPublicUrl(url);
       setStatus("done");
 
-      // Save it inside the app too (not just the raw file) so it shows up
-      // in "مكتبتي". If this table/policy isn't set up yet, the upload
-      // itself still succeeded — we just tell the user clearly.
-      const db = supabase as unknown as import("@supabase/supabase-js").SupabaseClient;
+      const author = (user.user_metadata?.["display_name"] as string | undefined) ?? user.email?.split("@")[0] ?? "مستخدم";
+      const db = supabase as unknown as any;
       const { error: dbError } = await db.from("clips").insert({
         title,
         media_url: url,
         media_type: "video",
         duration_seconds: durationSeconds,
+        user_id: user.id,
+        author,
       });
 
       if (dbError) {
+        console.error("Database error:", dbError);
         toast.error("تم الرفع للسحابة، لكن تعذر حفظه بمكتبتك داخل التطبيق");
       } else {
-        toast.success("تم حفظ القفشة بمكتبتك 🎉");
+        toast.success("تم حفظ القفشة - صارت ظاهرة للجميع! 🎉");
+        qc.invalidateQueries({ queryKey: ["clips"] });
       }
+    }
     } catch (err) {
       setStatus("error");
       const msg = err instanceof Error ? err.message : "تعذر رفع المقطع للسحابة";
