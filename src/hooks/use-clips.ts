@@ -1,14 +1,37 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Clip } from "@/data/clips";
+import { toast } from "sonner";
+
+export type Clip = {
+  id: string;
+  title: string;
+  author: string;
+  duration: string;
+  plays: string;
+  likes: string;
+  category: string;
+  gradient: string;
+  mediaUrl?: string;
+  mediaType?: "audio" | "video";
+  coverUrl?: string;
+  userId?: string;
+};
 
 const GRADIENTS = [
-  "gradient-violet", "gradient-teal", "gradient-amber",
-  "gradient-rose", "gradient-indigo", "gradient-lime",
+  "gradient-violet",
+  "gradient-blue",
+  "gradient-emerald",
+  "gradient-amber",
+  "gradient-rose",
 ];
 
-const db = () => supabase as unknown as SupabaseClient;
+function fmtDuration(sec: unknown): string {
+  const s = Number(sec ?? 0);
+  if (!s) return "0:00";
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r < 10 ? "0" : ""}${r}`;
+}
 
 function toPublicUrl(raw: unknown, bucket: string): string {
   const value = String(raw ?? "").trim();
@@ -28,24 +51,21 @@ function toPublicUrl(raw: unknown, bucket: string): string {
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
-function fmtDuration(s?: number | null) {
-  const t = Math.round(Number(s) || 0);
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-}
-
 export function useClips() {
-  return useQuery({
+  return useQuery<Clip[]>({
     queryKey: ["clips"],
-    queryFn: async (): Promise<Clip[]> => {
-      const { data, error } = await db()
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from("clips")
         .select("*")
         .order("created_at", { ascending: false });
+
       if (error) {
-        console.error("clips fetch error:", error);
-        return [];
+        console.error("Error fetching clips:", error);
+        throw error;
       }
-           return (data ?? []).map((r, i) => {
+
+      return (data ?? []).map((r, i) => {
         const rawMediaType = String(r.media_type ?? "").toLowerCase();
         
         const mediaType: Clip["mediaType"] = 
@@ -69,13 +89,25 @@ export function useClips() {
           ...(r.user_id ? { userId: String(r.user_id) } : {}),
         };
       });
+    },
+  });
+}
+
 export function useDeleteClip() {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db().from("clips").delete().eq("id", id);
+      const { error } = await supabase.from("clips").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["clips"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clips"] });
+      toast.success("تم حذف المقطع بنجاح");
+    },
+    onError: (error) => {
+      console.error("Error deleting clip:", error);
+      toast.error("حدث خطأ أثناء حذف المقطع");
+    },
   });
 }
