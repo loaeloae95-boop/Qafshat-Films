@@ -470,6 +470,7 @@ function UploadToCloudButton({
     </div>
   );
 }
+function Slider({
   label,
   value,
   max,
