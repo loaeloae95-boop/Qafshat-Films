@@ -70,8 +70,6 @@ export function ClipCard({ clip }: { clip: Clip }) {
                 videoWidth: video.videoWidth,
                 videoHeight: video.videoHeight,
               });
-            }
-          }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
@@ -80,12 +78,6 @@ export function ClipCard({ clip }: { clip: Clip }) {
             setIsPlaying(false);
             toast.error("تعذر تشغيل صورة الفيديو");
           }}
-        />
-      )}
-
-        />
-      )}
-
       {hasImage ? (
         <div className="absolute inset-0 bg-black/25" />
       ) : (
