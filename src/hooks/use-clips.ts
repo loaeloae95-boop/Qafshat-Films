@@ -1,190 +1,95 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-import type { Clip } from "@/data/clips";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const STORAGE_BUCKET = "videos";
-const COVER_BUCKET = "images";
+export type Clip = {
+  id: string;
+  title: string;
+  author: string;
+  duration: string;
+  plays: string;
+  likes: string;
+  category: string;
+  gradient: string;
+  mediaUrl?: string;
+  mediaType?: "audio" | "video";
+  coverUrl?: string;
+  userId?: string;
+};
 
 const GRADIENTS = [
   "gradient-violet",
-  "gradient-teal",
+  "gradient-blue",
+  "gradient-emerald",
   "gradient-amber",
   "gradient-rose",
-  "gradient-indigo",
-  "gradient-lime",
-] as const;
+];
 
-type ClipRow = {
-  id?: string | number | null;
-  title?: string | null;
-  author?: string | null;
-  media_url?: string | null;
-  media_type?: string | null;
-  cover_url?: string | null;
-  duration_seconds?: number | string | null;
-  category?: string | null;
-  user_id?: string | null;
-  plays_count?: number | string | null;
-  likes_count?: number | string | null;
-  created_at?: string | null;
-};
+function fmtDuration(sec: unknown): string {
+  const s = Number(sec ?? 0);
+  if (!s) return "0:00";
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r < 10 ? "0" : ""}${r}`;
+}
 
-const db = () => supabase as unknown as SupabaseClient;
-
-function toPublicUrl(
-  rawValue: unknown,
-  bucket: string,
-): string {
-  const raw = String(rawValue ?? "").trim();
-
-  if (!raw) {
+function toPublicUrl(raw: unknown, bucket: string): string {
+  const value = String(raw ?? "").trim();
+  
+  if (!value) {
     return "";
   }
-
-  if (/^https?:\/\//i.test(raw)) {
-    return raw;
+  
+  if (/^https?:\/\//i.test(value)) {
+    return value;
   }
-
-  const path = raw
+  
+  const path = value
     .replace(/^\/+/, "")
-    .replace(new RegExp(`^${bucket}/+`, "i"), "");
-
-  if (!path) {
-    return "";
-  }
-
-  return supabase.storage
-    .from(bucket)
-    .getPublicUrl(path)
-    .data
-    .publicUrl;
-}
-
-function formatDuration(
-  seconds: unknown,
-): string {
-  const value = Number(seconds);
-
-  if (!Number.isFinite(value) || value <= 0) {
-    return "0:00";
-  }
-
-  const totalSeconds = Math.round(value);
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainingSeconds = totalSeconds % 60;
-
-  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
-}
-
-function formatCount(
-  value: unknown,
-): string {
-  const number = Number(value);
-
-  if (!Number.isFinite(number) || number <= 0) {
-    return "0";
-  }
-
-  if (number >= 1_000_000) {
-    return `${(number / 1_000_000).toFixed(1)}m`;
-  }
-
-  if (number >= 1_000) {
-    return `${(number / 1_000).toFixed(1)}k`;
-  }
-
-  return String(Math.round(number));
-}
-
-function normalizeMediaType(
-  value: unknown,
-): "audio" | "video" {
-  const type = String(value ?? "").trim().toLowerCase();
-
-  if (
-    type === "audio" ||
-    type === "sound" ||
-    type === "music" ||
-    type === "mp3" ||
-    type === "wav" ||
-    type === "m4a"
-  ) {
-    return "audio";
-  }
-
-  return "video";
-}
-
-function mapClipRow(
-  row: ClipRow,
-  index: number,
-): Clip {
-  const mediaType = normalizeMediaType(row.media_type);
-
-  const mediaUrl = toPublicUrl(
-    row.media_url,
-    STORAGE_BUCKET,
-  );
-
-  const coverUrl = toPublicUrl(
-    row.cover_url,
-    COVER_BUCKET,
-  );
-
-  const gradient =
-    GRADIENTS[index % GRADIENTS.length] ??
-    "gradient-violet";
-
-  return {
-    id: String(row.id ?? ""),
-    title: String(row.title ?? "مقطع بدون عنوان"),
-    author: String(row.author ?? "مستخدم"),
-    duration: formatDuration(row.duration_seconds),
-    plays: formatCount(row.plays_count),
-    likes: formatCount(row.likes_count),
-    category: String(row.category ?? "مرفوعاتي"),
-    gradient,
-    mediaType,
-    ...(mediaUrl ? { mediaUrl } : {}),
-    ...(coverUrl ? { coverUrl } : {}),
-    ...(row.user_id
-      ? { userId: String(row.user_id) }
-      : {}),
-  };
+    .replace(new RegExp(`^${bucket}\/+`, "i"), "");
+    
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
 export function useClips() {
   return useQuery<Clip[]>({
     queryKey: ["clips"],
-
     queryFn: async () => {
-      const { data, error } = await db()
+      const { data, error } = await supabase
         .from("clips")
         .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("خطأ في تحميل المقاطع:", error);
+        console.error("Error fetching clips:", error);
         throw error;
       }
 
-      const rows = (data ?? []) as unknown as ClipRow[];
-
-      return rows
-        .map((row, index) => mapClipRow(row, index))
-        .filter((clip) => clip.id.length > 0);
+      return (data ?? []).map((r, i) => {
+        const rawMediaType = String(r.media_type ?? "").toLowerCase();
+        
+        const mediaType: Clip["mediaType"] = 
+          rawMediaType === "audio" ? "audio" : "video";
+          
+        const mediaUrl = toPublicUrl(r.media_url, "videos");
+        const coverUrl = toPublicUrl(r.cover_url, "images");
+        
+        return {
+          id: String(r.id),
+          title: String(r.title ?? "مقطع بدون عنوان"),
+          author: String(r.author ?? "مستخدم"),
+          duration: fmtDuration(r.duration_seconds),
+          plays: String(r.plays_count ?? "0"),
+          likes: String(r.likes_count ?? "0"),
+          category: String(r.category ?? "مرفوعاتي"),
+          gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
+          mediaUrl,
+          mediaType,
+          ...(coverUrl ? { coverUrl } : {}),
+          ...(r.user_id ? { userId: String(r.user_id) } : {}),
+        };
+      });
     },
-
-    staleTime: 30_000,
-    retry: 1,
   });
 }
 
@@ -192,28 +97,17 @@ export function useDeleteClip() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (clipId: string) => {
-      const id = String(clipId).trim();
-
-      if (!id) {
-        throw new Error("معرّف المقطع غير صالح");
-      }
-
-      const { error } = await db()
-        .from("clips")
-        .delete()
-        .eq("id", id);
-
-      if (error) {
-        console.error("خطأ في حذف المقطع:", error);
-        throw error;
-      }
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("clips").delete().eq("id", id);
+      if (error) throw error;
     },
-
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["clips"],
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clips"] });
+      toast.success("تم حذف المقطع بنجاح");
+    },
+    onError: (error) => {
+      console.error("Error deleting clip:", error);
+      toast.error("حدث خطأ أثناء حذف المقطع");
     },
   });
 }
