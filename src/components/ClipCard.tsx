@@ -1,11 +1,16 @@
 import { useState, useRef, useEffect } from "react";
+import { Heart, Music, Pause, Play, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 import { type Clip } from "@/data/clips";
+import { ShareMenu } from "./ShareMenu";
 
 interface ClipCardProps {
   clip: Clip;
   index: number;
 }
+
+let currentlyPlaying: HTMLMediaElement | null = null;
 
 export function ClipCard({ clip, index }: ClipCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -16,94 +21,192 @@ export function ClipCard({ clip, index }: ClipCardProps) {
   const hasMedia = Boolean(clip.mediaUrl) && !mediaFailed;
   const hasImage = Boolean(clip.coverUrl) && !mediaFailed;
 
-  useEffect(() => {
-    if (mediaRef.current) {
+  const stopCurrentMedia = () => {
+    if (currentlyPlaying && currentlyPlaying !== mediaRef.current) {
+      currentlyPlaying.pause();
+    }
+  };
+
+  const handlePlay = () => setIsPlaying(true);
+  const handlePause = () => setIsPlaying(false);
+  const handleEnded = () => {
+    setIsPlaying(false);
+    if (currentlyPlaying === mediaRef.current) {
+      currentlyPlaying = null;
+    }
+  };
+
+  const handleMediaError = (e: React.SyntheticEvent<HTMLMediaElement>) => {
+    setMediaFailed(true);
+    setIsPlaying(false);
+    if (currentlyPlaying === mediaRef.current) {
+      currentlyPlaying = null;
+    }
+    console.error("خطأ تشغيل الميديا:", {
+      title: clip.title,
+      mediaUrl: clip.mediaUrl,
+      mediaType: clip.mediaType,
+    });
+    toast.error("تعذر تشغيل هذا الملف");
+  };
+
+  const handleVideoMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error("الفيديو لا يحتوي على مسار صورة صالح", {
+        src: clip.mediaUrl,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+      });
+    }
+  };
+
+  const togglePlay = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const media = mediaRef.current;
+    if (!media || !clip.mediaUrl || mediaFailed) {
+      toast.error("هذا المقطع غير متاح للتشغيل");
+      return;
+    }
+
+    try {
       if (isPlaying) {
-        mediaRef.current.play().catch((err) => {
-          console.error("Playback failed:", err);
-          setIsPlaying(false);
-        });
+        media.pause();
       } else {
-        mediaRef.current.pause();
+        stopCurrentMedia();
+        currentlyPlaying = media;
+        await media.play();
+      }
+    } catch (err) {
+      console.error("تعذر تشغيل الوسائط:", err);
+      toast.error("تعذر تشغيل المقطع");
+    }
+  };
+
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (!media) return;
+
+    if (isPlaying) {
+      if (currentlyPlaying && currentlyPlaying !== media) {
+        setIsPlaying(false);
       }
     }
   }, [isPlaying]);
 
   return (
-    <div className={`relative overflow-hidden rounded-xl aspect-[9/16] ${clip.gradient || "bg-slate-800"}`}>
-      {/* 1. عرض صورة الغلاف إذا وجدت */}
-      {hasImage && !isPlaying && (
+    <div
+      className={`relative flex aspect-square w-full flex-col overflow-hidden rounded-2xl p-4 shadow-card ring-1 ring-foreground/10 ${
+        clip.gradient || "bg-slate-800"
+      }`}
+    >
+      {/* عرض صورة الغلاف */}
+      {hasImage && (
         <img
           src={clip.coverUrl}
           alt={clip.title}
+          loading="lazy"
           className="absolute inset-0 h-full w-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
         />
       )}
 
-      {/* 2. مشغل الفيديو */}
+      {/* مشغل الصوت */}
+      {hasMedia && isAudio && (
+        <audio
+          ref={(el) => {
+            mediaRef.current = el;
+          }}
+          src={clip.mediaUrl}
+          preload="metadata"
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onEnded={handleEnded}
+          onError={handleMediaError}
+        />
+      )}
+
+      {/* مشغل الفيديو */}
       {hasMedia && !isAudio && (
         <video
-          ref={mediaRef as React.RefObject<HTMLVideoElement>}
+          ref={(el) => {
+            mediaRef.current = el;
+          }}
           src={clip.mediaUrl}
           preload="metadata"
           playsInline
-          muted
           className="absolute inset-0 h-full w-full object-cover"
-          onLoadedMetadata={(e) => {
-            const video = e.currentTarget;
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-              console.error("الفيديو لا يحتوي على مسار صورة صالح", {
-                src: clip.mediaUrl,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-              });
-            }
-          }}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => {
-            setIsPlaying(false);
-          }}
-          onError={(e) => {
-            console.error("Video error:", e);
-            setMediaFailed(true);
-            setIsPlaying(false);
-            toast.error("تعذر تشغيل الفيديو");
-          }}
+          onLoadedMetadata={handleVideoMetadata}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onEnded={handleEnded}
+          onError={handleMediaError}
         />
       )}
 
-      {/* 3. مشغل الصوت */}
-      {hasMedia && isAudio && (
-        <audio
-          ref={mediaRef as React.RefObject<HTMLAudioElement>}
-          src={clip.mediaUrl}
-          preload="metadata"
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => {
-            setIsPlaying(false);
-          }}
-          onError={(e) => {
-            console.error("Audio error:", e);
-            setMediaFailed(true);
-            setIsPlaying(false);
-            toast.error("تعذر تشغيل الصوت");
-          }}
+      {hasImage && <div className="absolute inset-0 bg-black/25" />}
+
+      {hasImage && isAudio && (
+        <Music
+          className="absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-white/40"
+          aria-hidden="true"
         />
       )}
 
-      {/* 4. تفاصيل المقطع وأزرار التحكم */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent p-4 flex flex-col justify-end">
-        <h3 className="text-white font-bold text-lg mb-1">{clip.title}</h3>
-        <p className="text-gray-300 text-sm mb-4">@{clip.author}</p>
-        
+      <div className="relative z-10 flex items-center justify-between gap-1">
+        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-[20px]">
+          {clip.badge ?? (isAudio ? "صوت" : "فيديو")}
+        </span>
+        <span className="text-[11px] font-medium text-white/80">
+          {clip.duration}
+        </span>
+      </div>
+
+      <div className="relative z-10 flex flex-1 items-center justify-center">
         <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          className="bg-white/20 hover:bg-white/30 text-white rounded-full py-2 px-4 backdrop-blur-sm transition-colors text-sm font-medium self-start"
+          type="button"
+          onClick={togglePlay}
+          aria-label={isPlaying ? "إيقاف المقطع" : "تشغيل المقطع"}
+          className={`flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-all hover:scale-105 ${
+            isPlaying && "opacity-0"
+          }`}
         >
-          {isPlaying ? "إيقاف مؤقت" : "تشغيل المقـطع"}
+          {isPlaying ? (
+            <Pause className="h-6 w-6 fill-white" />
+          ) : (
+            <Play className="h-6 w-6 translate-x-0.5 fill-white" />
+          )}
         </button>
+      </div>
+
+      <div className="relative z-10 mt-2 flex flex-col text-white">
+        <h3 className="truncate text-sm font-bold">{clip.title}</h3>
+        <p className="truncate text-[11px] text-white/70">@{clip.author}</p>
+      </div>
+
+      <div className="relative z-10 mt-2 flex items-center justify-between gap-1 text-white/80">
+        <button
+          type="button"
+          aria-label="الإعجاب بالمقطع"
+          className="flex items-center gap-1.5 text-[11px]"
+        >
+          <Heart className="h-4 w-4" />
+          <span>{clip.likes}</span>
+        </button>
+
+        <ShareMenu clip={clip}>
+          <button
+            type="button"
+            aria-label="مشاركة المقطع"
+            className="flex items-center gap-1.5 text-[11px]"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
+        </ShareMenu>
       </div>
     </div>
   );
