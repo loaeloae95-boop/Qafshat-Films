@@ -10,10 +10,22 @@ const GRADIENTS = [
 
 const db = () => supabase as unknown as SupabaseClient;
 
-function toPublicUrl(raw: string): string {
-  if (/^https?:\/\//i.test(raw)) return raw;
-  const path = raw.replace(/^\/+/, "").replace(/^videos\/+/, "");
-  return supabase.storage.from("videos").getPublicUrl(path).data.publicUrl;
+function toPublicUrl(raw: unknown, bucket: string): string {
+  const value = String(raw ?? "").trim();
+  
+  if (!value) {
+    return "";
+  }
+  
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+  
+  const path = value
+    .replace(/^\/+/, "")
+    .replace(new RegExp(`^${bucket}\/+`, "i"), "");
+    
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
 function fmtDuration(s?: number | null) {
@@ -33,33 +45,30 @@ export function useClips() {
         console.error("clips fetch error:", error);
         return [];
       }
-     return (data ?? []).map((r, i) => {
-  // 1. تحويل نوع الوسائط لنص صغير لتجنب اختلاف الحروف الكبيرة والصغيرة
-  const rawMediaType = String(r.media_type ?? "").toLowerCase();
-  
-  // 2. تحديد نوع الوسائط بدقة (صوت أم فيديو)
-  const mediaType: Clip["mediaType"] = 
-    rawMediaType === "audio" ? "audio" : "video";
-
-  return {
-    id: String(r.id),
-    title: String(r.title ?? "مقطع بدون عنوان"),
-    author: String(r.author ?? "مستخدم"),
-    duration: fmtDuration(r.duration_seconds),
-    plays: String(r.plays_count ?? "0"),
-    likes: String(r.likes_count ?? "0"),
-    category: String(r.category ?? "مرفوعاتي"),
-    gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
-    mediaUrl: toPublicUrl(String(r.media_url ?? "")),
-    mediaType, // استخدام المتغير الجديد المحمي هنا
-    ...(r.cover_url ? { coverUrl: String(r.cover_url) } : {}),
-    ...(r.user_id ? { userId: String(r.user_id) } : {}),
-  };
-});
-    },
-  });
-}
-
+           return (data ?? []).map((r, i) => {
+        const rawMediaType = String(r.media_type ?? "").toLowerCase();
+        
+        const mediaType: Clip["mediaType"] = 
+          rawMediaType === "audio" ? "audio" : "video";
+          
+        const mediaUrl = toPublicUrl(r.media_url, "videos");
+        const coverUrl = toPublicUrl(r.cover_url, "images");
+        
+        return {
+          id: String(r.id),
+          title: String(r.title ?? "مقطع بدون عنوان"),
+          author: String(r.author ?? "مستخدم"),
+          duration: fmtDuration(r.duration_seconds),
+          plays: String(r.plays_count ?? "0"),
+          likes: String(r.likes_count ?? "0"),
+          category: String(r.category ?? "مرفوعاتي"),
+          gradient: GRADIENTS[i % GRADIENTS.length] ?? "gradient-violet",
+          mediaUrl,
+          mediaType,
+          ...(coverUrl ? { coverUrl } : {}),
+          ...(r.user_id ? { userId: String(r.user_id) } : {}),
+        };
+      });
 export function useDeleteClip() {
   const qc = useQueryClient();
   return useMutation({
