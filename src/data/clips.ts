@@ -9,6 +9,7 @@ export type Clip = {
   gradient: string;
   badge?: string;
   mediaUrl?: string;
+  coverUrl?: string;
   mediaType?: "audio" | "video";
   userId?: string;
 };
