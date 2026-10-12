@@ -16,6 +16,7 @@ import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as ApiPublicMediaProxyRouteImport } from './routes/api/public/media-proxy'
 import { Route as ApiPublicProcessVideoUrlRouteImport } from './routes/api/public/process-video-url'
+import { Route as AuthRouteImport } from './routes/auth'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -137,6 +138,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/account'
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
+    }
+      '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: () => typeof AuthRouteImport
+      parentRoute: () => typeof rootRouteImport
     }
     '/library': {
       id: '/library'
