@@ -33,18 +33,28 @@ function fmtDuration(sec: unknown): string {
   return `${m}:${r < 10 ? "0" : ""}${r}`;
 }
 
-const SUPABASE_PROJECT_URL = "https://defcicflgsqnoumcvwc.supabase.co";
-
+// دالة تحويل الرابط للمرور عبر خادم Vercel وتجاوز أي حظر DNS
 function toPublicUrl(path: string | null | undefined, bucket: string): string {
   if (!path) return "";
-  const trimmed = path.trim();
-  // إذا كان الرابط يبدأ بـ http/https فهو رابط كامل
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
+  let cleanPath = path.trim();
+
+  // إذا كان الرابط كاملاً من Supabase، نستخرج منه اسم الملف فقط
+  const supabasePrefix = "https://defcicflgsqnoumcvwc.supabase.co/storage/v1/object/public/";
+  if (cleanPath.startsWith(supabasePrefix)) {
+    cleanPath = cleanPath.replace(supabasePrefix, "");
+    return `/storage-media/${cleanPath}`;
   }
-  // إذا كان اسم ملف فقط، قم ببناء الرابط المباشر الكامل والمضمون
-  const cleanPath = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
-  return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${cleanPath}`;
+
+  // إذا كان رابط خارجي آخر (مثل يوتيوب أو سيرفر آخر) نتركه كما هو
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    return cleanPath;
+  }
+
+  // إذا كان اسم ملف فقط داخل الـ bucket
+  if (cleanPath.startsWith("/")) {
+    cleanPath = cleanPath.slice(1);
+  }
+  return `/storage-media/${bucket}/${cleanPath}`;
 }
 
 export function useClips() {
