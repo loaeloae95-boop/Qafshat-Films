@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/storage-media/:path*",
+      "destination": "https://defcicflgsqnoumcvwc.supabase.co/storage/v1/object/public/:path*"
+    }
+  ]
+}
