@@ -33,21 +33,12 @@ function fmtDuration(sec: unknown): string {
   return `${m}:${r < 10 ? "0" : ""}${r}`;
 }
 
-function toPublicUrl(raw: unknown, bucket: string): string {
-  const value = String(raw ?? "").trim();
-  
-  if (!value) {
-    return "";
+function toPublicUrl(path: string | null | undefined, bucket: string): string {
+  if (!path) return "";
+  // إذا كان الرابط كاملاً ويبدأ بـ https، يتم استخدامه مباشرة دون تكرار
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
   }
-  
-  if (/^https?:\/\//i.test(value)) {
-    return value;
-  }
-  
-  const path = value
-    .replace(/^\/+/, "")
-    .replace(new RegExp(`^${bucket}\/+`, "i"), "");
-    
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
