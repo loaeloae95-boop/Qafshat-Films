@@ -11,8 +11,8 @@ export type Clip = {
   likes: string;
   category: string;
   gradient: string;
-  mediaUrl?: string;
-  mediaType?: "audio" | "video";
+  mediaUrl: string;
+  mediaType: "audio" | "video";
   coverUrl?: string;
   userId?: string;
 };
@@ -33,13 +33,23 @@ function fmtDuration(sec: unknown): string {
   return `${m}:${r < 10 ? "0" : ""}${r}`;
 }
 
+// دالة تحويل الروابط الذكية لمنع التكرار وضمان تشغيل المقاطع
 function toPublicUrl(path: string | null | undefined, bucket: string): string {
   if (!path) return "";
-  // إذا كان الرابط كاملاً ويبدأ بـ https، يتم استخدامه مباشرة دون تكرار
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    return path;
+  const cleanPath = String(path).trim();
+
+  // 1. إذا كان الرابط كاملاً بالفعل (يبدأ بـ http أو https)، أعده كما هو دون تكرار
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    return cleanPath;
   }
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+
+  // 2. إذا كان المسار يحتوي على اسم الباكت في بدايته، نقوم بتنظيفه
+  const relativePath = cleanPath.startsWith(`${bucket}/`)
+    ? cleanPath.slice(bucket.length + 1)
+    : cleanPath;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(relativePath);
+  return data?.publicUrl ?? "";
 }
 
 export function useClips() {
@@ -58,13 +68,14 @@ export function useClips() {
 
       return (data ?? []).map((r, i) => {
         const rawMediaType = String(r.media_type ?? "").toLowerCase();
-        
-        const mediaType: Clip["mediaType"] = 
+        const mediaType: Clip["mediaType"] =
           rawMediaType === "audio" ? "audio" : "video";
-          
-        const mediaUrl = toPublicUrl(r.media_url, "videos");
+
+        // تحديد الباكت الصحيح تلقائياً حسب نوع المقطع (صوت أو فيديو)
+        const bucket = mediaType === "audio" ? "audios" : "videos";
+        const mediaUrl = toPublicUrl(r.media_url, bucket);
         const coverUrl = toPublicUrl(r.cover_url, "images");
-        
+
         return {
           id: String(r.id),
           title: String(r.title ?? "مقطع بدون عنوان"),
