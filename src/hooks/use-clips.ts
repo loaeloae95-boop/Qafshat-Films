@@ -33,23 +33,18 @@ function fmtDuration(sec: unknown): string {
   return `${m}:${r < 10 ? "0" : ""}${r}`;
 }
 
-// دالة تحويل الروابط الذكية لمنع التكرار وضمان تشغيل المقاطع
+const SUPABASE_PROJECT_URL = "https://defcicflgsqnoumcvwc.supabase.co";
+
 function toPublicUrl(path: string | null | undefined, bucket: string): string {
   if (!path) return "";
-  const cleanPath = String(path).trim();
-
-  // 1. إذا كان الرابط كاملاً بالفعل (يبدأ بـ http أو https)، أعده كما هو دون تكرار
-  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
-    return cleanPath;
+  const trimmed = path.trim();
+  // إذا كان الرابط يبدأ بـ http/https فهو رابط كامل
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
   }
-
-  // 2. إذا كان المسار يحتوي على اسم الباكت في بدايته، نقوم بتنظيفه
-  const relativePath = cleanPath.startsWith(`${bucket}/`)
-    ? cleanPath.slice(bucket.length + 1)
-    : cleanPath;
-
-  const { data } = supabase.storage.from(bucket).getPublicUrl(relativePath);
-  return data?.publicUrl ?? "";
+  // إذا كان اسم ملف فقط، قم ببناء الرابط المباشر الكامل والمضمون
+  const cleanPath = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+  return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${cleanPath}`;
 }
 
 export function useClips() {
@@ -66,14 +61,12 @@ export function useClips() {
         throw error;
       }
 
-      return (data ?? []).map((r, i) => {
+      return (data ?? []).map((r: any, i: number) => {
         const rawMediaType = String(r.media_type ?? "").toLowerCase();
         const mediaType: Clip["mediaType"] =
           rawMediaType === "audio" ? "audio" : "video";
 
-        // تحديد الباكت الصحيح تلقائياً حسب نوع المقطع (صوت أو فيديو)
-        const bucket = mediaType === "audio" ? "audios" : "videos";
-        const mediaUrl = toPublicUrl(r.media_url, bucket);
+        const mediaUrl = toPublicUrl(r.media_url, "videos");
         const coverUrl = toPublicUrl(r.cover_url, "images");
 
         return {
@@ -109,7 +102,7 @@ export function useDeleteClip() {
     },
     onError: (error) => {
       console.error("Error deleting clip:", error);
-      toast.error("حدث خطأ أثناء حذف المقطع");
+      toast.error("تعذر حذف المقطع");
     },
   });
 }
