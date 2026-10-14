@@ -1,13 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, RefObject, SyntheticEvent, MouseEvent } from "react";
 import { Heart, Music, Pause, Play, Share2 } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "@tanstack/react-router";
 import { type Clip } from "@/data/clips";
-import { ShareMenu } from "./ShareMenu";
+import { shareClip } from "./ShareMenu";
 
 interface ClipCardProps {
   clip: Clip;
-  index: number;
+  index?: number;
 }
 
 let currentlyPlaying: HTMLMediaElement | null = null;
