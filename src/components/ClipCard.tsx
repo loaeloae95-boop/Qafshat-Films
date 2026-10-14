@@ -35,7 +35,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
     }
   };
 
-  const handleMediaError = (e: React.SyntheticEvent<HTMLMediaElement>) => {
+  const handleMediaError = (e: SyntheticEvent<HTMLMediaElement>) => {
     setMediaFailed(true);
     setIsPlaying(false);
     if (currentlyPlaying === mediaRef.current) {
@@ -49,7 +49,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
     toast.error("تعذر تشغيل هذا الملف");
   };
 
-  const handleVideoMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+  const handleVideoMetadata = (e: SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       console.error("الفيديو لا يحتوي على مسار صورة صالح", {
@@ -60,7 +60,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
     }
   };
 
-  const togglePlay = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const togglePlay = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
@@ -117,9 +117,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
       {/* مشغل الصوت */}
       {hasMedia && isAudio && (
         <audio
-          ref={(el) => {
-            mediaRef.current = el;
-          }}
+          ref={mediaRef as RefObject<HTMLAudioElement>}
           src={clip.mediaUrl}
           preload="metadata"
           onPlay={handlePlay}
@@ -132,9 +130,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
       {/* مشغل الفيديو */}
       {hasMedia && !isAudio && (
         <video
-          ref={(el) => {
-            mediaRef.current = el;
-          }}
+          ref={mediaRef as RefObject<HTMLVideoElement>}
           src={clip.mediaUrl}
           preload="metadata"
           playsInline
@@ -171,7 +167,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
           onClick={togglePlay}
           aria-label={isPlaying ? "إيقاف المقطع" : "تشغيل المقطع"}
           className={`flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-all hover:scale-105 ${
-            isPlaying && "opacity-0"
+            isPlaying ? "opacity-0" : ""
           }`}
         >
           {isPlaying ? (
@@ -197,15 +193,18 @@ export function ClipCard({ clip, index }: ClipCardProps) {
           <span>{clip.likes}</span>
         </button>
 
-        <ShareMenu clip={clip}>
-          <button
-            type="button"
-            aria-label="مشاركة المقطع"
-            className="flex items-center gap-1.5 text-[11px]"
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
-        </ShareMenu>
+        <button
+          type="button"
+          aria-label="مشاركة المقطع"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void shareClip(clip);
+          }}
+          className="flex items-center gap-1.5 text-[11px] hover:text-white"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
