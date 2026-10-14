@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, RefObject, SyntheticEvent, MouseEvent } from "react";
-import { Heart, Music, Pause, Play, Share2, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Heart, Music, Pause, Play, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { type Clip } from "@/data/clips";
@@ -18,9 +18,8 @@ export function ClipCard({ clip, index }: ClipCardProps) {
   const mediaRef = useRef<HTMLMediaElement | null>(null);
 
   const isAudio = clip.mediaType === "audio";
-  const hasImage = Boolean(clip.coverUrl);
-  // تنظيف الرابط وترميز المسافات إن وجدت
-  const safeMediaUrl = clip.mediaUrl ? encodeURI(clip.mediaUrl) : "";
+  const hasMedia = Boolean(clip.mediaUrl) && !mediaFailed;
+  const hasImage = Boolean(clip.coverUrl) && !mediaFailed;
 
   const stopCurrentMedia = () => {
     if (currentlyPlaying && currentlyPlaying !== mediaRef.current) {
@@ -37,28 +36,38 @@ export function ClipCard({ clip, index }: ClipCardProps) {
     }
   };
 
-  const handleMediaError = (e: SyntheticEvent<HTMLMediaElement>) => {
-    // لا نحذف الفيديو عند الخطأ الأولي، فقط نوقف التشغيل وننبه
+  const handleMediaError = (e: React.SyntheticEvent<HTMLMediaElement>) => {
+    setMediaFailed(true);
     setIsPlaying(false);
     if (currentlyPlaying === mediaRef.current) {
       currentlyPlaying = null;
     }
     console.error("خطأ تشغيل الميديا:", {
       title: clip.title,
-      mediaUrl: safeMediaUrl,
+      mediaUrl: clip.mediaUrl,
       mediaType: clip.mediaType,
     });
+    toast.error("تعذر تشغيل هذا الملف");
   };
 
-  const togglePlay = async (event?: MouseEvent) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
+  const handleVideoMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error("الفيديو لا يحتوي على مسار صورة صالح", {
+        src: clip.mediaUrl,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+      });
     }
+  };
+
+  const togglePlay = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
 
     const media = mediaRef.current;
-    if (!media || !safeMediaUrl) {
-      toast.error("هذا المقطع غير متاح للتشغيل حالياً");
+    if (!media || !clip.mediaUrl || mediaFailed) {
+      toast.error("هذا المقطع غير متاح للتشغيل");
       return;
     }
 
@@ -72,8 +81,7 @@ export function ClipCard({ clip, index }: ClipCardProps) {
       }
     } catch (err) {
       console.error("تعذر تشغيل الوسائط:", err);
-      toast.error("تعذر تشغيل هذا المقطع");
-      setIsPlaying(false);
+      toast.error("تعذر تشغيل المقطع");
     }
   };
 
@@ -81,19 +89,20 @@ export function ClipCard({ clip, index }: ClipCardProps) {
     const media = mediaRef.current;
     if (!media) return;
 
-    if (!isPlaying && currentlyPlaying === media) {
-      media.pause();
+    if (isPlaying) {
+      if (currentlyPlaying && currentlyPlaying !== media) {
+        setIsPlaying(false);
+      }
     }
   }, [isPlaying]);
 
   return (
     <div
-      onClick={() => togglePlay()}
-      className={`relative flex aspect-square w-full cursor-pointer flex-col overflow-hidden rounded-2xl p-4 shadow-card ring-1 ring-foreground/10 transition-transform active:scale-[0.98] ${
+      className={`relative flex aspect-square w-full flex-col overflow-hidden rounded-2xl p-4 shadow-card ring-1 ring-foreground/10 ${
         clip.gradient || "bg-slate-800"
       }`}
     >
-      {/* عرض صورة الغلاف إن وجدت */}
+      {/* عرض صورة الغلاف */}
       {hasImage && (
         <img
           src={clip.coverUrl}
@@ -107,11 +116,13 @@ export function ClipCard({ clip, index }: ClipCardProps) {
       )}
 
       {/* مشغل الصوت */}
-      {isAudio && safeMediaUrl && (
+      {hasMedia && isAudio && (
         <audio
-          ref={mediaRef as RefObject<HTMLAudioElement>}
-          src={safeMediaUrl}
-          preload="none"
+          ref={(el) => {
+            mediaRef.current = el;
+          }}
+          src={clip.mediaUrl}
+          preload="metadata"
           onPlay={handlePlay}
           onPause={handlePause}
           onEnded={handleEnded}
@@ -120,14 +131,16 @@ export function ClipCard({ clip, index }: ClipCardProps) {
       )}
 
       {/* مشغل الفيديو */}
-      {!isAudio && safeMediaUrl && (
+      {hasMedia && !isAudio && (
         <video
-          ref={mediaRef as RefObject<HTMLVideoElement>}
-          src={safeMediaUrl}
-          preload="none"
+          ref={(el) => {
+            mediaRef.current = el;
+          }}
+          src={clip.mediaUrl}
+          preload="metadata"
           playsInline
-          loop
           className="absolute inset-0 h-full w-full object-cover"
+          onLoadedMetadata={handleVideoMetadata}
           onPlay={handlePlay}
           onPause={handlePause}
           onEnded={handleEnded}
@@ -135,34 +148,31 @@ export function ClipCard({ clip, index }: ClipCardProps) {
         />
       )}
 
-      {/* طبقة تظليل للحفاظ على وضوح النصوص والأزرار */}
-      <div className="absolute inset-0 bg-black/35 pointer-events-none" />
+      {hasImage && <div className="absolute inset-0 bg-black/25" />}
 
-      {/* أيقونة الصوت إذا كان مقطعاً صوتياً */}
-      {isAudio && (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/20 pointer-events-none">
-          <Music className="size-20" />
-        </div>
+      {hasImage && isAudio && (
+        <Music
+          className="absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-white/40"
+          aria-hidden="true"
+        />
       )}
 
-      {/* رأس البطاقة: المدة والنوع */}
-      <div className="relative z-10 flex items-center justify-between gap-1 pointer-events-none">
-        <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-md">
-          {isAudio ? "صوت" : "فيديو"}
+      <div className="relative z-10 flex items-center justify-between gap-1">
+        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-[20px]">
+          {clip.badge ?? (isAudio ? "صوت" : "فيديو")}
         </span>
-        <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-medium text-white/90 backdrop-blur-md">
+        <span className="text-[11px] font-medium text-white/80">
           {clip.duration}
         </span>
       </div>
 
-      {/* زر التشغيل في منتصف البطاقة */}
       <div className="relative z-10 flex flex-1 items-center justify-center">
         <button
           type="button"
-          onClick={(e) => togglePlay(e)}
+          onClick={togglePlay}
           aria-label={isPlaying ? "إيقاف المقطع" : "تشغيل المقطع"}
-          className={`flex h-14 w-14 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md transition-all hover:scale-110 active:scale-95 ${
-            isPlaying ? "opacity-0 hover:opacity-100" : "opacity-100"
+          className={`flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-all hover:scale-105 ${
+            isPlaying && "opacity-0"
           }`}
         >
           {isPlaying ? (
@@ -173,31 +183,26 @@ export function ClipCard({ clip, index }: ClipCardProps) {
         </button>
       </div>
 
-      {/* أسفل البطاقة: العنوان واسم الناشر والتفاعل */}
       <div className="relative z-10 mt-2 flex flex-col text-white">
-        <h3 className="truncate text-sm font-bold drop-shadow-md">{clip.title}</h3>
-        <p className="truncate text-[11px] text-white/80">@{clip.author}</p>
+        <h3 className="truncate text-sm font-bold">{clip.title}</h3>
+        <p className="truncate text-[11px] text-white/70">@{clip.author}</p>
       </div>
 
-      {/* أزرار الإعجاب والمشاركة */}
-      <div
-        className="relative z-10 mt-2 flex items-center justify-between gap-1 text-white/80"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative z-10 mt-2 flex items-center justify-between gap-1 text-white/80">
         <button
           type="button"
-          aria-label="إعجاب بالمقطع"
-          className="flex items-center gap-1.5 text-[11px] hover:text-white"
+          aria-label="الإعجاب بالمقطع"
+          className="flex items-center gap-1.5 text-[11px]"
         >
           <Heart className="h-4 w-4" />
-          <span>{clip.likes ?? "0"}</span>
+          <span>{clip.likes}</span>
         </button>
 
         <ShareMenu clip={clip}>
           <button
             type="button"
             aria-label="مشاركة المقطع"
-            className="flex items-center gap-1.5 text-[11px] hover:text-white"
+            className="flex items-center gap-1.5 text-[11px]"
           >
             <Share2 className="h-4 w-4" />
           </button>
