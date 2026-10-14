@@ -18,13 +18,13 @@ export type Clip = {
 };
 
 const GRADIENTS = [
-  "gradient-violet",
-  "gradient-blue",
-  "gradient-emerald",
-  "gradient-amber",
-  "gradient-rose",
-];
-
+  'gradient-violet',
+  'gradient-teal',
+  'gradient-amber',
+  'gradient-rose',
+  'gradient-indigo',
+  'gradient-lime'
+]
 function fmtDuration(sec: unknown): string {
   const s = Number(sec ?? 0);
   if (!s) return "0:00";
