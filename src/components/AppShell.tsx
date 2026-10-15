@@ -1,20 +1,21 @@
 import { Link } from "@tanstack/react-router";
-import { Home, Flame, Scissors, Library, User } from "lucide-react";
+import { Flame, Home, Library, Upload, User } from "lucide-react";
 import type { ReactNode } from "react";
+import { QuickSearchButton } from "./QuickSearch";
 
 const navItems = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/trending", label: "رائج", icon: Flame },
-  { to: "/studio", label: "قص", icon: Scissors },
+  { to: "/studio", label: "رفع", icon: Upload },
   { to: "/library", label: "مكتبتي", icon: Library },
   { to: "/account", label: "حسابي", icon: User },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-48">
       <div className="mx-auto w-full max-w-md px-4 pt-6">{children}</div>
-
+      <QuickSearchButton />
       <nav className="fixed inset-x-0 bottom-0 z-50">
         <div className="mx-auto max-w-md px-4 pb-4">
           <ul className="glass-panel flex items-center justify-between rounded-3xl px-3 py-2">

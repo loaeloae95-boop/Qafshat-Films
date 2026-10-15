@@ -10,11 +10,79 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.18"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clips: {
+        Row: {
+          author: string | null
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          duration_seconds: number | null
+          gif_url: string | null
+          id: string
+          likes_count: number
+          media_type: string
+          media_url: string
+          plays_count: number
+          source: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          author?: string | null
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          gif_url?: string | null
+          id?: string
+          likes_count?: number
+          media_type?: string
+          media_url: string
+          plays_count?: number
+          source?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          author?: string | null
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          gif_url?: string | null
+          id?: string
+          likes_count?: number
+          media_type?: string
+          media_url?: string
+          plays_count?: number
+          source?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

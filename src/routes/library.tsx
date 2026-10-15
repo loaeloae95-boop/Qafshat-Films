@@ -1,60 +1,38 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Library as LibraryIcon, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { ClipCard } from "@/components/ClipCard";
+import { ClipGrid } from "@/components/ClipGrid";
+import { SignInPrompt } from "@/components/SignInPrompt";
 import { useSession } from "@/hooks/use-auth";
-import { useClips, useDeleteClip } from "@/hooks/use-clips";
+import { useClips, useDeleteClip } from "@/lib/clips";
 
 export const Route = createFileRoute("/library")({
-  head: () => ({ meta: [{ title: "مكتبتي — قفشات أفلام" }] }),
-  component: LibraryPage,
+  head: () => ({
+    meta: [
+      { title: "مكتبتي — قفشات أفلام" },
+      { name: "description", content: "القفشات التي رفعتها." },
+      { property: "og:title", content: "مكتبتي — قفشات أفلام" },
+      { property: "og:description", content: "القفشات التي رفعتها." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: Library,
 });
 
-function LibraryPage() {
+function Library() {
   const { user, loading } = useSession();
-  const { data: all = [] } = useClips();
+  const { data = [] } = useClips();
   const del = useDeleteClip();
-  const mine = user ? all.filter((c) => c.userId === user.id) : [];
-
+  const mine = data.filter((c) => c.userId === user?.id);
   return (
     <AppShell>
-      <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold">
-        <LibraryIcon className="size-6 text-primary" />
-        مكتبتي
-      </h1>
-
-      {!loading && !user && (
-        <div className="glass-panel mt-6 rounded-3xl p-6 text-center">
-          <p className="mb-4 text-sm text-muted-foreground">سجّل الدخول لترى قفشاتك وتحفظ الجديد</p>
-          <Link to="/auth" className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground">
-            تسجيل الدخول
-          </Link>
-        </div>
-      )}
-
-      {user && (
+      <h1 className="mb-5 font-display text-2xl font-extrabold">مكتبتي</h1>
+      {!loading && !user ? (
+        <SignInPrompt text="سجّل الدخول لرؤية قفشاتك" />
+      ) : (
         <>
-          <p className="mt-1 text-xs text-muted-foreground">{mine.length} قفشة</p>
-          <section className="mt-5 grid grid-cols-3 gap-2.5">
-            {mine.map((clip) => (
-              <div key={clip.id}>
-                <ClipCard clip={clip} />
-                <button
-                  type="button"
-                  onClick={() =>
-                    del.mutate(clip.id, {
-                      onSuccess: () => toast.success("تم الحذف"),
-                      onError: () => toast.error("تعذر الحذف"),
-                    })
-                  }
-                  className="mt-1 flex w-full items-center justify-center gap-1 text-[11px] text-red-400"
-                >
-                  <Trash2 className="size-3" /> حذف
-                </button>
-              </div>
-            ))}
-          </section>
+          <ClipGrid clips={mine} onDelete={(c) => confirm("حذف هذه القفشة؟") && del.mutate(c.id)} />
+          {mine.length === 0 && <p className="mt-10 text-center text-sm text-muted-foreground">لم ترفع أي قفشة بعد</p>}
         </>
       )}
     </AppShell>

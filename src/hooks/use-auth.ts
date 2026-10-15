@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -14,6 +13,5 @@ export function useSession() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
-
   return { session, user: session?.user ?? null, loading };
 }
