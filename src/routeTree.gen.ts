@@ -15,6 +15,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TrendingRouteImport } from './routes/trending'
+import { Route as ApiPublicMediaProxyRouteImport } from './routes/api/public/media-proxy'
+import { Route as ApiPublicProcessVideoUrlRouteImport } from './routes/api/public/process-video-url'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +48,17 @@ const TrendingRoute = TrendingRouteImport.update({
   path: '/trending',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMediaProxyRoute = ApiPublicMediaProxyRouteImport.update({
+  id: '/api/public/media-proxy',
+  path: '/api/public/media-proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicProcessVideoUrlRoute =
+  ApiPublicProcessVideoUrlRouteImport.update({
+    id: '/api/public/process-video-url',
+    path: '/api/public/process-video-url',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +67,8 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
+  '/api/public/media-proxy': typeof ApiPublicMediaProxyRoute
+  '/api/public/process-video-url': typeof ApiPublicProcessVideoUrlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +77,8 @@ export interface FileRoutesByTo {
   '/library': typeof LibraryRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
+  '/api/public/media-proxy': typeof ApiPublicMediaProxyRoute
+  '/api/public/process-video-url': typeof ApiPublicProcessVideoUrlRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,12 +88,30 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
+  '/api/public/media-proxy': typeof ApiPublicMediaProxyRoute
+  '/api/public/process-video-url': typeof ApiPublicProcessVideoUrlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/auth' | '/library' | '/studio' | '/trending'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/auth'
+    | '/library'
+    | '/studio'
+    | '/trending'
+    | '/api/public/media-proxy'
+    | '/api/public/process-video-url'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/auth' | '/library' | '/studio' | '/trending'
+  to:
+    | '/'
+    | '/account'
+    | '/auth'
+    | '/library'
+    | '/studio'
+    | '/trending'
+    | '/api/public/media-proxy'
+    | '/api/public/process-video-url'
   id:
     | '__root__'
     | '/'
@@ -85,6 +120,8 @@ export interface FileRouteTypes {
     | '/library'
     | '/studio'
     | '/trending'
+    | '/api/public/media-proxy'
+    | '/api/public/process-video-url'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,6 +131,8 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
+  ApiPublicMediaProxyRoute: typeof ApiPublicMediaProxyRoute
+  ApiPublicProcessVideoUrlRoute: typeof ApiPublicProcessVideoUrlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -140,6 +179,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrendingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/media-proxy': {
+      id: '/api/public/media-proxy'
+      path: '/api/public/media-proxy'
+      fullPath: '/api/public/media-proxy'
+      preLoaderRoute: typeof ApiPublicMediaProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/process-video-url': {
+      id: '/api/public/process-video-url'
+      path: '/api/public/process-video-url'
+      fullPath: '/api/public/process-video-url'
+      preLoaderRoute: typeof ApiPublicProcessVideoUrlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -150,6 +203,8 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
+  ApiPublicMediaProxyRoute: ApiPublicMediaProxyRoute,
+  ApiPublicProcessVideoUrlRoute: ApiPublicProcessVideoUrlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
